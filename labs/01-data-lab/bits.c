@@ -134,6 +134,7 @@ NOTES:
 
 
 #endif
+#include <stdio.h>
 //1
 /* 
  * bitXor - x^y using only ~ and & 
@@ -143,7 +144,7 @@ NOTES:
  *   Rating: 1
  */
 int bitXor(int x, int y) {
-  return 2;
+  return (~((~x)&(~y)))&(~(x&y));
 }
 /* 
  * tmin - return minimum two's complement integer 
@@ -153,7 +154,7 @@ int bitXor(int x, int y) {
  */
 int tmin(void) {
 
-  return 2;
+  return 1<<31;
 
 }
 //2
@@ -165,7 +166,7 @@ int tmin(void) {
  *   Rating: 1
  */
 int isTmax(int x) {
-  return 2;
+  return !(~((1<<31)+x));
 }
 /* 
  * allOddBits - return 1 if all odd-numbered bits in word set to 1
@@ -176,7 +177,11 @@ int isTmax(int x) {
  *   Rating: 2
  */
 int allOddBits(int x) {
-  return 2;
+  int allOddBitsSet = 10 + (10<<4);
+  allOddBitsSet += allOddBitsSet<<8;
+  allOddBitsSet += allOddBitsSet<<16;
+  int allEvenBitsSet = ~allOddBitsSet;
+  return !(~(allEvenBitsSet+(x&allOddBitsSet)));
 }
 /* 
  * negate - return -x 
@@ -186,7 +191,7 @@ int allOddBits(int x) {
  *   Rating: 2
  */
 int negate(int x) {
-  return 2;
+  return ~x+1;
 }
 //3
 /* 
@@ -199,7 +204,7 @@ int negate(int x) {
  *   Rating: 3
  */
 int isAsciiDigit(int x) {
-  return 2;
+  return (!(~((~0x3)+(x>>4)))) & (!(1&(x>>3)&(x>>2))) & (!(1&(x>>3)&(x>>1)));
 }
 /* 
  * conditional - same as x ? y : z 
@@ -209,7 +214,13 @@ int isAsciiDigit(int x) {
  *   Rating: 3
  */
 int conditional(int x, int y, int z) {
-  return 2;
+  // convert to 0 or 1
+  int yMask = !!x;
+  // convert 1 to 11...1, 0 stays
+  // 0->0, 1->-1, i.e. wants -yMask
+  yMask = ~yMask + 1;
+  int zMask = ~yMask; 
+  return (y&yMask) | (z&zMask);
 }
 /* 
  * isLessOrEqual - if x <= y  then return 1, else return 0 
@@ -219,7 +230,18 @@ int conditional(int x, int y, int z) {
  *   Rating: 3
  */
 int isLessOrEqual(int x, int y) {
-  return 2;
+  // First thought determine whether y-x>=0 through >>31
+  // Need to deal with overflow in y-x so try (y-x)/2, 
+  // but need to do it without overflow,
+  // also need to think through the rounding
+  int negXMinusOne = ~x; // need to deal with overflow if use ~x+1
+  // printf("%d[%x]\n", negXMinusOne, negXMinusOne);
+  // t = floor((y-(x-1))/2)
+  int t = (y&negXMinusOne) + ((y^negXMinusOne)>>1);
+  // need to round toward zero instead of floor
+  t = t + ((!(!(t>>31))) & (y^negXMinusOne));
+  // printf("%d[%x]\n", t, t);
+  return (!(t>>31));
 }
 //4
 /* 
