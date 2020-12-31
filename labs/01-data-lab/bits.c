@@ -134,7 +134,6 @@ NOTES:
 
 
 #endif
-#include <stdio.h>
 //1
 /* 
  * bitXor - x^y using only ~ and & 
@@ -253,7 +252,9 @@ int isLessOrEqual(int x, int y) {
  *   Rating: 4 
  */
 int logicalNeg(int x) {
-  return 2;
+  // x=0 is the only int that -x and x have 0 at 32 position
+  int negX = ~x+1;
+  return (~((x>>31) | (negX>>31))) & 1;
 }
 /* howManyBits - return the minimum number of bits required to represent x in
  *             two's complement
@@ -268,7 +269,29 @@ int logicalNeg(int x) {
  *  Rating: 4
  */
 int howManyBits(int x) {
-  return 0;
+  int sign_bit = x>>31;
+  // for negative number, need to find the leftmost zero by flip 01
+  // this is reverse of signed extension
+  x = (sign_bit & (~x)) | ((~sign_bit) & x);
+
+  // find the position of the leftmost 1 bit and add 1 to it
+  // use binary search
+  int bit16 = !!(x>>16); // whether high 16 has 1
+  bit16 = bit16 << 4; // 0b1000 = 16
+  x = x>>bit16; // right move 16 bits if high 16 has 1, else do not move
+  int bit8 = !!(x>>8);
+  bit8 = bit8 << 3;
+  x = x>>bit8;
+  int bit4 = !!(x>>4);
+  bit4 = bit4 << 2;
+  x = x>>bit4;
+  int bit2 = !!(x>>2);
+  bit2 = bit2 << 1;
+  x = x>>bit2;
+  int bit1 = !!(x>>1);
+  x = x>>bit1;
+  int bit0 = x;
+  return bit16 + bit8 + bit4 + bit2 + bit1 + bit0 + 1;
 }
 //float
 /* 
@@ -283,7 +306,21 @@ int howManyBits(int x) {
  *   Rating: 4
  */
 unsigned floatScale2(unsigned uf) {
-  return 2;
+  // Need to get exp part and put it back
+  int exp = (uf<<1)>>24;
+  // mask to take out only exp part all 0
+  unsigned exp_mask = ~(255<<23);
+  unsigned sign = (uf>>31)<<31;
+  // Denormalized Value
+  if (!exp) return uf<<1 | sign;
+  // Special Value
+  if (exp==255) return uf;
+  // Normalized Value
+  exp = exp+1; // double part
+  // if overflow, then should be infinity
+  if (exp==255) return sign | (exp<<23);
+
+  return (exp<<23) | (exp_mask&uf);
 }
 /* 
  * floatFloat2Int - Return bit-level equivalent of expression (int) f
@@ -298,7 +335,25 @@ unsigned floatScale2(unsigned uf) {
  *   Rating: 4
  */
 int floatFloat2Int(unsigned uf) {
-  return 2;
+  int exp = (uf<<1)>>24;
+  unsigned sign = uf>>31;
+  int frac = (uf<<9)>>9;
+  // Denormalized Value
+  if (!exp) return 0;
+  // Special Value
+  if (exp==255) return 0x80000000u;
+  // Normalized Value
+  exp = exp - 127;
+  // Too large
+  if (exp>=32) return 0x80000000u;
+  // smaller than 1
+  if (exp<0) return 0;
+
+  // part without sign
+  int result = (1<<exp) + ((frac<<exp)>>23);
+  // if negative number
+  if (sign) result = ~result + 1;
+  return result;
 }
 /* 
  * floatPower2 - Return bit-level equivalent of the expression 2.0^x
@@ -314,5 +369,15 @@ int floatFloat2Int(unsigned uf) {
  *   Rating: 4
  */
 unsigned floatPower2(int x) {
-    return 2;
+    int exp = x+127;
+    int inf = (255<<23);
+    // too big
+    if (exp >= 255) return inf;
+    // normalized
+    if (exp > 0) return exp << 23;
+    // denormalized
+    // when exp=0, it is -127
+    unsigned frac = 1<<22;
+    if (exp>=-22) return frac >> (-exp);
+    return 0;
 }
